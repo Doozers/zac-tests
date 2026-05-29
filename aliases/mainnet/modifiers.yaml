@@ -1,0 +1,7 @@
+# Mainnet Zodiac Roles V2 modifier addresses. One per safe; reference
+# from `.zac.yaml` configs via `aliases.modifiers.<name>`.
+#
+# Deploy a Roles modifier on your Safe via https://app.safe.global
+# (Apps → Zodiac → Roles Modifier) before populating this.
+#
+# my_modifier: "0x0000000000000000000000000000000000000000"

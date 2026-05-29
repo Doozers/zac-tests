@@ -1,0 +1,8 @@
+# Mainnet safes managed by this repo. Reference from `.zac.yaml`
+# configs via `aliases.safes.<name>`.
+#
+# Each entry must be the checksummed Safe address. The parent
+# directory name under `config/mainnet/<safe-address>/` must match
+# (case-insensitive) the address used here.
+#
+# my_safe: "0x0000000000000000000000000000000000000000"

@@ -1,0 +1,10 @@
+{
+  "name": "zac-template",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Template repository for managing Zodiac Roles V2 Safe configurations via zac. Owns the .zac.yaml sources and the GitHub Actions that plan/submit Safe transactions.",
+  "dependencies": {
+    "viem": "2.48.8"
+  }
+}

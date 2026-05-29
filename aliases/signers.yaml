@@ -1,0 +1,11 @@
+# Role members — EOAs allowed to call scoped functions through the
+# Roles modifier. Reference from `.zac.yaml` configs via
+# `aliases.signers.<name>`.
+#
+# These are MEMBERS, NOT proposers. The proposer EOA is configured via
+# the `ZAC_PROPOSER_PRIVATE_KEY` repo secret (see README) and must be
+# either a Safe owner or a registered proposer on Safe Tx Service.
+#
+# Add one entry per signer:
+# alice: "0x0000000000000000000000000000000000000000"
+# bob:   "0x0000000000000000000000000000000000000000"

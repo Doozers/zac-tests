@@ -1,0 +1,83 @@
+name: zac plan
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'config/**'
+      - 'zac'
+      - '.github/workflows/plan.yml'
+      - '.github/scripts/**'
+
+permissions:
+  pull-requests: write   # sticky comment
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with zac submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          # PAT with read access to railnetorg/zac (the zac submodule).
+          # Falls back to GITHUB_TOKEN when the workflow runs in a repo
+          # where org-level perms already cover the submodule.
+          token: ${{ secrets.ZAC_SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install zac deps
+        working-directory: zac/action
+        run: bun install --frozen-lockfile
+
+      - name: Install template deps
+        # viem for `hashStruct` in the PR-comment builder; intentionally
+        # not --frozen-lockfile because we don't ship a lockfile for the
+        # template root (tiny dep surface, see ./package.json).
+        run: bun install
+
+      - name: zac generate
+        run: bun run zac/action/cli.ts generate config/
+
+      # `zac plan` queries the live Safe contract (nonce, threshold) and
+      # the Zodiac subgraph for current role state, so per-chain RPC URLs
+      # are required even in plan-only mode. Uses the CLI default
+      # `--revoke-unmentioned=false`: only roles declared in `config/`
+      # are affected by the plan. Drop a `.zac.yaml` source if you want
+      # the workflow to leave a role untouched; add an explicit revoke
+      # source to remove one.
+      - name: zac plan
+        env:
+          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+        run: |
+          set -o pipefail
+          bun run zac/action/cli.ts plan config/ 2>&1 | tee plan-diff.txt
+
+      - name: Build PR comment body
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          bun run .github/scripts/build-pr-comment.ts \
+            plan-diff.txt config/ > pr-comment.md
+          cat pr-comment.md
+
+      - name: Post sticky PR comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: zac-plan
+          path: pr-comment.md
+
+      - name: Upload plan JSONs
+        uses: actions/upload-artifact@v4
+        with:
+          name: plan-jsons-${{ github.event.pull_request.head.sha }}
+          path: config/**/*.plan.json
+          if-no-files-found: ignore
+          retention-days: 14

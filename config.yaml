@@ -1,0 +1,43 @@
+# Root zac config — declares which alias files load for each network.
+#
+# Alias namespaces become available to templates as
+# `aliases.<namespace>.<key>` (e.g. `aliases.safes.my_safe`).
+#
+# - `./zac/aliases/...` — canonical token/protocol aliases vendored in
+#   the zac submodule. Bump the submodule to update; do NOT edit in
+#   place.
+# - `./aliases/...`     — repo-local aliases for this deployment
+#   (safes, modifiers, signers). Edit here.
+#
+# Add or remove protocol entries per network as your `.zac.yaml`
+# templates need. The full set of canonical aliases shipped by zac
+# is in `zac/aliases/<network>/`; consult `zac/templates/<protocol>/`
+# for which params each template expects.
+aliases:
+  global:
+    signers: ./aliases/signers.yaml
+
+  mainnet:
+    aave: ./zac/aliases/mainnet/aave.yaml
+    compound: ./zac/aliases/mainnet/compound.yaml
+    maple: ./zac/aliases/mainnet/maple.yaml
+    metamorpho: ./zac/aliases/mainnet/metamorpho.yaml
+    morpho_blue: ./zac/aliases/mainnet/morpho_blue.yaml
+    ondo_gm: ./zac/aliases/mainnet/ondo_gm.yaml
+    ondo_ousg: ./zac/aliases/mainnet/ondo_ousg.yaml
+    tokens: ./zac/aliases/mainnet/tokens.yaml
+    safes: ./aliases/mainnet/safes.yaml
+    modifiers: ./aliases/mainnet/modifiers.yaml
+
+  base:
+    morpho_blue: ./zac/aliases/base/morpho_blue.yaml
+    tokens: ./zac/aliases/base/tokens.yaml
+    safes: ./aliases/base/safes.yaml
+    modifiers: ./aliases/base/modifiers.yaml
+
+  sepolia:
+    aave: ./zac/aliases/sepolia/aave.yaml
+    morpho_blue: ./zac/aliases/sepolia/morpho_blue.yaml
+    tokens: ./zac/aliases/sepolia/tokens.yaml
+    safes: ./aliases/sepolia/safes.yaml
+    modifiers: ./aliases/sepolia/modifiers.yaml

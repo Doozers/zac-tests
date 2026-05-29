@@ -1,0 +1,113 @@
+name: zac release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'config/**'
+      - 'zac'
+      - '.github/workflows/release.yml'
+      - '.github/scripts/**'
+
+permissions:
+  contents: write   # required to create the release
+
+# Serialize submits so two consecutive pushes never race the Safe
+# nonce (the second push would see the first push's queued nonces
+# only AFTER the first submit has posted them to Safe Tx Service).
+concurrency:
+  group: zac-submit
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with zac submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          # Full history so the release tag can point at the exact merge
+          # commit and so `git log` is available when we build the body.
+          fetch-depth: 0
+          token: ${{ secrets.ZAC_SUBMODULE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install zac deps
+        working-directory: zac/action
+        run: bun install --frozen-lockfile
+
+      - name: Install template deps
+        run: bun install
+
+      - name: zac generate
+        run: bun run zac/action/cli.ts generate config/
+
+      # Uses the CLI default `--revoke-unmentioned=false`: only roles
+      # declared in `config/` are affected. Symmetric with plan.yml so
+      # the PR comment and the submitted proposal cover the same diff.
+      - name: zac plan
+        env:
+          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+        run: |
+          set -o pipefail
+          bun run zac/action/cli.ts plan config/ 2>&1 | tee plan-diff.txt
+
+      - name: Detect changes
+        id: check
+        # In-sync sources produce no `*.plan.json`. With zero plans the
+        # downstream `zac submit` step would fail with "no matching files
+        # found" — gate it explicitly so an empty push is a clean no-op
+        # (no release cut, workflow exits 0).
+        run: |
+          if find config -type f -name '*.plan.json' | read -r _; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Every safe-dir is in sync with config/ — skipping submit + release"
+          fi
+
+      - name: zac submit
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+          ZAC_PROPOSER_PRIVATE_KEY: ${{ secrets.ZAC_PROPOSER_PRIVATE_KEY }}
+          SAFE_API_KEY: ${{ secrets.SAFE_API_KEY }}
+        run: |
+          set -o pipefail
+          bun run zac/action/cli.ts submit config/ 2>&1 | tee submit-log.txt
+
+      - name: Build release body
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          bun run .github/scripts/build-release-body.ts \
+            plan-diff.txt submit-log.txt config/ > release-body.md
+          cat release-body.md
+
+      # GitHub rejects branch/tag names that are exactly 40 or 64 hex
+      # characters (anti-ambiguity rule — looks like a ref). Prefix the
+      # tag with `safe-` so the full merge SHA still uniquely identifies
+      # the commit but the tag passes validation. Release name keeps the
+      # full SHA — name has no such restriction.
+      - name: Create GitHub Release
+        if: steps.check.outputs.has_changes == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: safe-${{ github.sha }}
+          name: ${{ github.sha }}
+          body_path: release-body.md
+          files: config/**/*.plan.json
+          fail_on_unmatched_files: true
+          make_latest: true
+          prerelease: false
