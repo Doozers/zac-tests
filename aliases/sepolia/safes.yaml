@@ -1,2 +1,3 @@
 # Sepolia safes managed by this repo. See aliases/mainnet/safes.yaml
 # for the format.
+test_safe: "0x94656Ee1C3256c08C9dcBA28dB5A3703643256b1"
