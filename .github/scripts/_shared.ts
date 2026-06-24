@@ -1,34 +1,18 @@
 /**
  * Shared helpers for the PR-comment and release-body builders.
  *
- * Both scripts read the same `*.plan.json` artifacts emitted by
- * `zac plan` and compute the same EIP-712 `messageHash` for each one,
- * so the parsing + hashing + chain-label code lives here and the two
- * top-level scripts only differ in their markdown rendering.
+ * `zac plan` writes pure calldata (`*.plan.json`) — no safeTxHash / messageHash,
+ * because those are built against the live Safe (incl. nonce) only at SUBMIT
+ * time. So:
+ *   - the PR-comment builder (plan stage) reads `*.plan.json` via `parsePlan`
+ *     and shows NO hashes;
+ *   - the release-body builder (submit stage) reads the authoritative
+ *     safeTxHash / messageHash from `zac submit` stdout via `parseSubmitLog`.
+ * The chain-label / sorting / link helpers are shared.
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { hashStruct } from 'viem';
-
-// EIP-712 SafeTx struct definition — matches Safe contracts v1.3+ and
-// what `Safe.getTransactionHash()` hashes under the per-chain domain
-// separator. The `messageHash` we compute here is `keccak256(hashStruct
-// (SafeTx))` — the inner struct hash a hardware wallet displays.
-export const SAFE_TX_TYPES = {
-  SafeTx: [
-    { name: 'to', type: 'address' },
-    { name: 'value', type: 'uint256' },
-    { name: 'data', type: 'bytes' },
-    { name: 'operation', type: 'uint8' },
-    { name: 'safeTxGas', type: 'uint256' },
-    { name: 'baseGas', type: 'uint256' },
-    { name: 'gasPrice', type: 'uint256' },
-    { name: 'gasToken', type: 'address' },
-    { name: 'refundReceiver', type: 'address' },
-    { name: 'nonce', type: 'uint256' },
-  ],
-} as const;
 
 // Chain ID → human label. Extend as the template grows.
 export const CHAIN_NAMES: Record<number, string> = {
@@ -57,15 +41,26 @@ export const CHAIN_SHORTNAMES: Record<number, string> = {
   11155111: 'sep',
 };
 
+// What `zac plan` actually writes (zac planSchema.ts): pure calldata, with
+// NO safeTxData / safeTxHash / nonce / operation — those are built against
+// the live Safe at SUBMIT time, so they only exist in the submit log.
 export interface PlanFile {
   path: string;
   chainId: number;
   safeAddress: string;
   callsCount: number;
-  safeTxHash: string;
-  messageHash: string;
+  modifierAddress?: string;
+}
+
+/** One posted Safe proposal, parsed from `zac submit` stdout. */
+export interface SubmitRecord {
+  safeAddress: string;
+  chainId: number;
+  callsCount: number;
   nonce: string;
   operation: number;
+  safeTxHash: string;
+  messageHash: string;
 }
 
 export function walkPlans(root: string): string[] {
@@ -104,56 +99,55 @@ export function safeAppLink(chainId: number, safeAddress: string, safeTxHash: st
 }
 
 export function parsePlan(path: string): PlanFile {
-  const raw = readFileSync(path, 'utf8');
-  const json = JSON.parse(raw) as {
+  const json = JSON.parse(readFileSync(path, 'utf8')) as {
     chainId: number;
     safeAddress: string;
-    callsCount: number;
-    safeTxHash: string;
-    safeTxData: {
-      to: `0x${string}`;
-      value: string;
-      data: `0x${string}`;
-      operation: number;
-      safeTxGas: string;
-      baseGas: string;
-      gasPrice: string;
-      gasToken: `0x${string}`;
-      refundReceiver: `0x${string}`;
-      nonce: number | string;
-    };
+    callsCount?: number;
+    calls?: unknown[];
+    modifierAddress?: string;
   };
-  const messageHash = hashStruct({
-    types: SAFE_TX_TYPES,
-    primaryType: 'SafeTx',
-    data: {
-      to: json.safeTxData.to,
-      value: BigInt(json.safeTxData.value),
-      data: json.safeTxData.data,
-      operation: json.safeTxData.operation,
-      safeTxGas: BigInt(json.safeTxData.safeTxGas),
-      baseGas: BigInt(json.safeTxData.baseGas),
-      gasPrice: BigInt(json.safeTxData.gasPrice),
-      gasToken: json.safeTxData.gasToken,
-      refundReceiver: json.safeTxData.refundReceiver,
-      nonce: BigInt(json.safeTxData.nonce),
-    },
-  });
   return {
     path,
     chainId: json.chainId,
     safeAddress: json.safeAddress,
-    callsCount: json.callsCount,
-    safeTxHash: json.safeTxHash,
-    messageHash,
-    nonce: String(json.safeTxData.nonce),
-    operation: json.safeTxData.operation,
+    callsCount: json.callsCount ?? (Array.isArray(json.calls) ? json.calls.length : 0),
+    modifierAddress: json.modifierAddress,
   };
 }
 
+/**
+ * Parse the per-Safe proposal records from `zac submit` stdout. Each bundled
+ * submit emits one line:
+ *   submitted safe=0x… chain=1 plans=N calls=N nonce=N operation=N safeTxHash=0x… messageHash=0x…
+ * The safeTxHash / messageHash here are the authoritative signing hashes
+ * (built against the live Safe) that the plan JSON deliberately omits.
+ */
+export function parseSubmitLog(log: string): SubmitRecord[] {
+  const out: SubmitRecord[] = [];
+  for (const line of log.split('\n')) {
+    if (!line.startsWith('submitted safe=')) continue;
+    const field = (k: string): string | undefined =>
+      line.match(new RegExp(`(?:^|\\s)${k}=(\\S+)`))?.[1];
+    const safeAddress = field('safe');
+    const chainId = field('chain');
+    const safeTxHash = field('safeTxHash');
+    if (safeAddress === undefined || chainId === undefined || safeTxHash === undefined) continue;
+    out.push({
+      safeAddress,
+      chainId: Number(chainId),
+      callsCount: Number(field('calls') ?? '0'),
+      nonce: field('nonce') ?? '',
+      operation: Number(field('operation') ?? '0'),
+      safeTxHash,
+      messageHash: field('messageHash') ?? '',
+    });
+  }
+  return out;
+}
+
 /** Stable order: chainId asc, then safeAddress (lowercased) asc. */
-export function sortPlans(plans: PlanFile[]): PlanFile[] {
-  return plans.slice().sort((a, b) => {
+export function sortPlans<T extends { chainId: number; safeAddress: string }>(items: T[]): T[] {
+  return items.slice().sort((a, b) => {
     if (a.chainId !== b.chainId) return a.chainId - b.chainId;
     return a.safeAddress.toLowerCase() < b.safeAddress.toLowerCase() ? -1 : 1;
   });

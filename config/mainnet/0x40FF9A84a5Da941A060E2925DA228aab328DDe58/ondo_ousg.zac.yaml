@@ -1,0 +1,13 @@
+roles_modifier_address: "{{ aliases.modifiers.poc_test_cs_modifier }}"
+safe_address: "{{ aliases.safes.poc_test_cs_treasury_wallet_id_diversified_income }}"
+chain_id: 1
+name: Ondo OUSG USDC Manager
+description: Subscribe and redeem OUSG with USDC on Mainnet
+configs:
+  - template: "../../../zac/templates/ondo_ousg/ondo_ousg.tmpl"
+    key: ONDO_OUSG
+    members:
+      - "{{ aliases.signers.poc_test_cs_execution_manager }}"
+    params:
+      payment_assets:
+        - "USDC"

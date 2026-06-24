@@ -1,0 +1,13 @@
+roles_modifier_address: "{{ aliases.modifiers.cs_diversified_strategy_treasury_wallet_modifier }}"
+safe_address: "{{ aliases.safes.cs_diversified_strategy_treasury_wallet_safe }}"
+chain_id: 1
+name: Compound V3 USDC Manager
+description: Supply and withdraw USDC on Compound V3 Mainnet
+configs:
+  - template: "../../../zac/templates/compound_v3/compound_v3.tmpl"
+    key: COMPOUND_V3
+    members:
+      - "{{ aliases.signers.cs_execution_quorum }}"
+    params:
+      deposit_assets:
+        - "USDC"

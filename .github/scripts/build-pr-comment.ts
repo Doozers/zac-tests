@@ -12,15 +12,23 @@
  * `pr-comment.md` and passes that to `marocchino/sticky-pull-request-comment`.
  *
  * Multi-chain / multi-safe in one PR is a first-class case: every
- * `(chainId, safeAddress)` group gets its own row in the summary +
- * hashes tables, sorted by chainId asc then safeAddress.
+ * `(chainId, safeAddress)` group gets its own row in the summary table,
+ * sorted by chainId asc then safeAddress.
+ *
+ * NOTE: per-plan safeTxHash / messageHash are intentionally NOT shown
+ * here. The Safe txs displayed in the PR are the pre-bundle plans —
+ * they get re-bundled (and re-hashed) at release time when multiple
+ * plans for the same `(chainId, safeAddress)` collapse into one Safe
+ * transaction. Showing the pre-bundle hashes here would mislead signers
+ * into expecting hashes that never appear on the hardware wallet. The
+ * authoritative signing hashes live in the release workflow's body
+ * (see `build-release-body.ts`).
  */
 
 import { readFileSync } from 'node:fs';
 import {
   chainLabel,
   parsePlan,
-  safeAppLink,
   shortAddr,
   sortPlans,
   walkPlans,
@@ -45,19 +53,7 @@ function renderBody(plans: PlanFile[], diff: string, headSha: string): string {
   const safes = new Set(sorted.map((p) => `${p.chainId}:${p.safeAddress.toLowerCase()}`));
 
   const summaryRows = sorted
-    .map(
-      (p) =>
-        `| \`${shortAddr(p.safeAddress)}\` | ${chainLabel(p.chainId)} | ${p.callsCount} | ${p.nonce} |`,
-    )
-    .join('\n');
-
-  const hashRows = sorted
-    .map((p) => {
-      const link = safeAppLink(p.chainId, p.safeAddress, p.safeTxHash);
-      const hashCell =
-        link === '' ? `\`${p.safeTxHash}\`` : `[\`${p.safeTxHash}\`](${link})`;
-      return `| \`${shortAddr(p.safeAddress)}\` | ${chainLabel(p.chainId)} | ${hashCell} | \`${p.messageHash}\` |`;
-    })
+    .map((p) => `| \`${shortAddr(p.safeAddress)}\` | ${chainLabel(p.chainId)} | ${p.callsCount} |`)
     .join('\n');
 
   return [
@@ -67,19 +63,9 @@ function renderBody(plans: PlanFile[], diff: string, headSha: string): string {
     '',
     '<details open><summary><b>Summary</b></summary>',
     '',
-    '| Safe | Chain | Calls | Nonce |',
-    '|------|-------|-------|-------|',
+    '| Safe | Chain | Calls |',
+    '|------|-------|-------|',
     summaryRows,
-    '',
-    '</details>',
-    '',
-    '<details><summary><b>Hashes to verify on signing</b></summary>',
-    '',
-    '> When signing in the Safe app, your hardware wallet should display these exact hashes.',
-    '',
-    '| Safe | Chain | safeTxHash | messageHash |',
-    '|------|-------|------------|-------------|',
-    hashRows,
     '',
     '</details>',
     '',

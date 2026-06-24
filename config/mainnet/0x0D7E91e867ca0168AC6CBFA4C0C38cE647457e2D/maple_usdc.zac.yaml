@@ -1,0 +1,13 @@
+roles_modifier_address: "{{ aliases.modifiers.cs_diversified_strategy_treasury_wallet_modifier }}"
+safe_address: "{{ aliases.safes.cs_diversified_strategy_treasury_wallet_safe }}"
+chain_id: 1
+name: Maple USDC Manager
+description: Deposit and redeem USDC on Maple Mainnet
+configs:
+  - template: "../../../zac/templates/maple/maple.tmpl"
+    key: MAPLE
+    members:
+      - "{{ aliases.signers.cs_execution_quorum }}"
+    params:
+      deposit_assets:
+        - "USDC"

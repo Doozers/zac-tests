@@ -4,5 +4,11 @@
 # Each entry must be the checksummed Safe address. The parent
 # directory name under `config/mainnet/<safe-address>/` must match
 # (case-insensitive) the address used here.
-#
-# my_safe: "0x0000000000000000000000000000000000000000"
+
+# POC test — the 0x40FF… deployment's safe (poc_test fork). Used ONLY by
+# config/mainnet/0x40FF9A84…/.
+poc_test_cs_treasury_wallet_id_diversified_income: "0x40FF9A84a5Da941A060E2925DA228aab328DDe58"
+
+# Safe for config/mainnet/0x1b50C694…/. NON-COMPILING PLACEHOLDER — set this
+# to the 0x1b50… Safe's checksummed address (must match the dir name).
+cs_diversified_strategy_treasury_wallet_safe: "0x0D7E91e867ca0168AC6CBFA4C0C38cE647457e2D"
