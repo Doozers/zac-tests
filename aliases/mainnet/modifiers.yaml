@@ -3,5 +3,14 @@
 #
 # Deploy a Roles modifier on your Safe via https://app.safe.global
 # (Apps → Zodiac → Roles Modifier) before populating this.
-#
-# my_modifier: "0x0000000000000000000000000000000000000000"
+
+# Roles modifier for safe cs_rwa_strategy_treasury_wallet (0x40599beb…dCC0).
+# NON-COMPILING PLACEHOLDER — deploy a Roles modifier on this Safe (Safe
+# Apps → Zodiac → Roles Modifier) and replace the value below. zac generate
+# will fail validation until this is a real address.
+cs_diversified_strategy_treasury_wallet_modifier: "0x0FF1a766db77F1CbC2D56eFc2CA8cCF901381258"
+
+# POC test — fork of the 0x40FF… deployment's modifier (same address), used
+# ONLY by config/mainnet/0x40FF9A84…/. The original cs_modifier above is kept
+# for the 0x1b50… safe.
+poc_test_cs_modifier: "0x6a2A4eb8695e501AFD6599020FAB970D6018012a"

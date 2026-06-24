@@ -20,6 +20,7 @@ aliases:
   mainnet:
     aave: ./zac/aliases/mainnet/aave.yaml
     compound: ./zac/aliases/mainnet/compound.yaml
+    ethena: ./zac/aliases/mainnet/ethena.yaml
     maple: ./zac/aliases/mainnet/maple.yaml
     metamorpho: ./zac/aliases/mainnet/metamorpho.yaml
     morpho_blue: ./zac/aliases/mainnet/morpho_blue.yaml
@@ -28,6 +29,7 @@ aliases:
     tokens: ./zac/aliases/mainnet/tokens.yaml
     safes: ./aliases/mainnet/safes.yaml
     modifiers: ./aliases/mainnet/modifiers.yaml
+    lagoon: ./aliases/mainnet/lagoon.yaml
 
   base:
     morpho_blue: ./zac/aliases/base/morpho_blue.yaml

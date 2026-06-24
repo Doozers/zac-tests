@@ -1,0 +1,14 @@
+roles_modifier_address: "{{ aliases.modifiers.poc_test_cs_modifier }}"
+safe_address: "{{ aliases.safes.poc_test_cs_treasury_wallet_id_diversified_income }}"
+chain_id: 1
+name: Ethena USDe Manager
+description: Mint/redeem USDe (USDC, USDT collateral) and stake/unstake sUSDe on Ethena Mainnet
+configs:
+  - template: "../../../zac/templates/ethena/ethena.tmpl"
+    key: ETHENA_INSTITUTIONAL
+    members:
+      - "{{ aliases.signers.poc_test_cs_execution_manager }}"
+    params:
+      operator: "{{ aliases.signers.poc_test_cs_ethena_operator_mainnet }}"
+      collateral_assets:
+        - "USDC"

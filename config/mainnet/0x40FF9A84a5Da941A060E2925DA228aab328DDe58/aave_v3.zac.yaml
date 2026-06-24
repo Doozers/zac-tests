@@ -1,0 +1,13 @@
+roles_modifier_address: "{{ aliases.modifiers.poc_test_cs_modifier }}"
+safe_address: "{{ aliases.safes.poc_test_cs_treasury_wallet_id_diversified_income }}"
+chain_id: 1
+name: Aave V3 USDC Manager
+description: Supply and withdraw USDC on Aave V3 Mainnet
+configs:
+  - template: "../../../zac/templates/aave_v3/aave_v3.tmpl"
+    key: AAVE_V3
+    members:
+      - "{{ aliases.signers.poc_test_cs_execution_manager }}"
+    params:
+      deposit_assets:
+        - "USDC"
