@@ -10,4 +10,4 @@ configs:
       - "{{ aliases.signers.test_signer }}"
     params:
       deposit_assets:
-        - address: "USDC"
+        - "USDC"

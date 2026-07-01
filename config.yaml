@@ -39,7 +39,12 @@ aliases:
 
   sepolia:
     aave: ./zac/aliases/sepolia/aave.yaml
+    ethena: ./aliases/sepolia/ethena.yaml
     morpho_blue: ./zac/aliases/sepolia/morpho_blue.yaml
-    tokens: ./zac/aliases/sepolia/tokens.yaml
+    # `tokens` merges the canonical zac list (USDC, …) with a repo-local
+    # file that adds USDe for the Ethena config.
+    tokens:
+      - ./zac/aliases/sepolia/tokens.yaml
+      - ./aliases/sepolia/tokens.yaml
     safes: ./aliases/sepolia/safes.yaml
     modifiers: ./aliases/sepolia/modifiers.yaml
