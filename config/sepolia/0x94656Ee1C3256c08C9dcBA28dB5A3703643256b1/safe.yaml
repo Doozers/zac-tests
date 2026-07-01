@@ -3,3 +3,9 @@ fallback: ~
 modules: [
   "{{ aliases.modifiers.modifier }}",
 ]
+# Parent-Safe owners that are themselves Safes. zac computes the EIP-1271
+# SafeMessage hash their signers must sign on the child Safe (shown at plan
+# as a live preview and emitted authoritatively at submit).
+nested_signers: [
+  "0x8bcf74e03Bc81dAbAf4FDaAcbd3Ef28894ae8480",
+]
