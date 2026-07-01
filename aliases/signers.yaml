@@ -6,17 +6,4 @@
 # the `ZAC_PROPOSER_PRIVATE_KEY` repo secret (see README) and must be
 # either a Safe owner or a registered proposer on Safe Tx Service.
 #
-# Ethena delegated signer (off-chain RFQ order signer) registered on
-# EthenaMinting via setDelegatedSigner. NOT a Roles member.
-cs_ethena_operator_mainnet: "0x083bE5e3815C07948FC032B7dFe98011887E3C27"
-
-# POC test — fork of the signer aliases (same addresses) used ONLY by
-# config/mainnet/0x40FF9A84…/. The original cs_* signers above are kept for
-# the 0x1b50… safe.
-poc_test_cs_execution_manager: "0x4ecb4C676E596A5B2b9084c5Aec8fce058CE71A6"
-poc_test_cs_operation_manager: "0x44995aF02E2A111501b629cD77e286092a9B26c1"
-poc_test_cs_ethena_operator_mainnet: "0x083bE5e3815C07948FC032B7dFe98011887E3C27"
-
-
-cs_execution_quorum: "0x92058E26d2dcF1452D9a5E9aAFE8C286CC52B985"
-cs_operation_quorum: "0x508cCaE14E1FFb60b9fC481A78c3784549E0A44C"
+test_signer: "0xF282D8F1786bAE972D7Ea84d0DE2eD0391FC5f67"

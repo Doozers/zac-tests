@@ -1,0 +1,4 @@
+# Repo-local sepolia token aliases — merged with the canonical
+# zac/aliases/sepolia/tokens.yaml (which provides USDC, …). Reference from
+# `.zac.yaml` / templates via `aliases.tokens.<SYMBOL>`.
+USDe: "0x9458CaACa74249AbBE9E964b3Ce155B98EC88EF2"

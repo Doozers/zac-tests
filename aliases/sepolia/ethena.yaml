@@ -1,0 +1,8 @@
+# Ethena contracts on Sepolia. Referenced by templates/ethena/ethena.tmpl as
+# `aliases.ethena.minting` and `aliases.ethena.susde`.
+#
+# ⚠ PLACEHOLDER addresses — valid-format stand-ins so `zac generate` compiles.
+# These are NOT the real Sepolia contracts. Replace with the actual Sepolia
+# EthenaMinting and StakedUSDe deployment addresses before proposing anything.
+minting: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" # EthenaMinting — PLACEHOLDER
+susde: "0xdddddddddddddddddddddddddddddddddddddddd" # StakedUSDe (ERC-4626) — PLACEHOLDER
