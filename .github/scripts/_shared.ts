@@ -44,12 +44,33 @@ export const CHAIN_SHORTNAMES: Record<number, string> = {
 // What `zac plan` actually writes (zac planSchema.ts): pure calldata, with
 // NO safeTxData / safeTxHash / nonce / operation — those are built against
 // the live Safe at SUBMIT time, so they only exist in the submit log.
+// `nestedSigners` (optional) is metadata only: the lowercased addresses of
+// Safe owners that are THEMSELVES Safes. The message hash each one must sign
+// is nonce-derived, so it is NOT persisted here — it is previewed live in the
+// `zac plan` diff and emitted authoritatively in the submit log.
 export interface PlanFile {
   path: string;
   chainId: number;
   safeAddress: string;
   callsCount: number;
   modifierAddress?: string;
+  nestedSigners?: string[];
+}
+
+/**
+ * One nested signer, parsed from a `nested-signer …` line of `zac submit`
+ * stdout. The child Safe (an owner of the parent) approves by executing
+ * `parentSafe.approveHash(...)`; its OWN owners sign that child transaction, so
+ * these are the child `SafeTx` hashes a Ledger shows: `domainHash` / `messageHash`
+ * are the "Domain hash" / "Message hash", `safeTxHash` is the final child tx
+ * digest, and `nonce` is the child Safe's nonce the hashes were computed at.
+ */
+export interface NestedSignerRecord {
+  child: string;
+  nonce: string;
+  domainHash: string;
+  messageHash: string;
+  safeTxHash: string;
 }
 
 /** One posted Safe proposal, parsed from `zac submit` stdout. */
@@ -61,6 +82,10 @@ export interface SubmitRecord {
   operation: number;
   safeTxHash: string;
   messageHash: string;
+  /** Parent Safe's EIP-712 domain hash (from the `main-tx …` line), if present. */
+  domainHash?: string;
+  /** Nested signers (from `nested-signer …` lines), empty when none declared. */
+  nestedSigners: NestedSignerRecord[];
 }
 
 export function walkPlans(root: string): string[] {
@@ -105,6 +130,7 @@ export function parsePlan(path: string): PlanFile {
     callsCount?: number;
     calls?: unknown[];
     modifierAddress?: string;
+    nestedSigners?: string[];
   };
   return {
     path,
@@ -112,7 +138,15 @@ export function parsePlan(path: string): PlanFile {
     safeAddress: json.safeAddress,
     callsCount: json.callsCount ?? (Array.isArray(json.calls) ? json.calls.length : 0),
     modifierAddress: json.modifierAddress,
+    ...(Array.isArray(json.nestedSigners) && json.nestedSigners.length > 0
+      ? { nestedSigners: json.nestedSigners }
+      : {}),
   };
+}
+
+/** Extract a `key=value` (non-space value) field from a submit-log line. */
+function logField(line: string, key: string): string | undefined {
+  return line.match(new RegExp(`(?:^|\\s)${key}=(\\S+)`))?.[1];
 }
 
 /**
@@ -121,28 +155,63 @@ export function parsePlan(path: string): PlanFile {
  *   submitted safe=0x… chain=1 plans=N calls=N nonce=N operation=N safeTxHash=0x… messageHash=0x…
  * The safeTxHash / messageHash here are the authoritative signing hashes
  * (built against the live Safe) that the plan JSON deliberately omits.
+ *
+ * When the Safe declares `nested_signers`, submit additionally emits, right
+ * after the `submitted` line, one `main-tx …` line (parent Safe domain hash)
+ * and one `nested-signer …` line per child Safe. Each child approves the parent
+ * tx by executing `approveHash(...)`, so its line carries the CHILD SafeTx
+ * hashes it must sign: `nonce=`, `domainHash=`, `messageHash=`, `safeTxHash=`.
+ * Those are matched back to their `submitted` record by `(safe, chain)`, so
+ * line ordering is not relied upon.
  */
 export function parseSubmitLog(log: string): SubmitRecord[] {
-  const out: SubmitRecord[] = [];
+  const byKey = new Map<string, SubmitRecord>();
+  const order: string[] = [];
+  const keyOf = (safe: string, chain: string): string => `${safe.toLowerCase()}:${chain}`;
+
   for (const line of log.split('\n')) {
-    if (!line.startsWith('submitted safe=')) continue;
-    const field = (k: string): string | undefined =>
-      line.match(new RegExp(`(?:^|\\s)${k}=(\\S+)`))?.[1];
-    const safeAddress = field('safe');
-    const chainId = field('chain');
-    const safeTxHash = field('safeTxHash');
-    if (safeAddress === undefined || chainId === undefined || safeTxHash === undefined) continue;
-    out.push({
-      safeAddress,
-      chainId: Number(chainId),
-      callsCount: Number(field('calls') ?? '0'),
-      nonce: field('nonce') ?? '',
-      operation: Number(field('operation') ?? '0'),
-      safeTxHash,
-      messageHash: field('messageHash') ?? '',
-    });
+    if (line.startsWith('submitted safe=')) {
+      const safeAddress = logField(line, 'safe');
+      const chainId = logField(line, 'chain');
+      const safeTxHash = logField(line, 'safeTxHash');
+      if (safeAddress === undefined || chainId === undefined || safeTxHash === undefined) continue;
+      const key = keyOf(safeAddress, chainId);
+      if (byKey.has(key)) continue; // one bundled proposal per (safe, chain)
+      order.push(key);
+      byKey.set(key, {
+        safeAddress,
+        chainId: Number(chainId),
+        callsCount: Number(logField(line, 'calls') ?? '0'),
+        nonce: logField(line, 'nonce') ?? '',
+        operation: Number(logField(line, 'operation') ?? '0'),
+        safeTxHash,
+        messageHash: logField(line, 'messageHash') ?? '',
+        nestedSigners: [],
+      });
+    } else if (line.startsWith('main-tx safe=')) {
+      const safeAddress = logField(line, 'safe');
+      const chainId = logField(line, 'chain');
+      if (safeAddress === undefined || chainId === undefined) continue;
+      const rec = byKey.get(keyOf(safeAddress, chainId));
+      const domainHash = logField(line, 'domainHash');
+      if (rec !== undefined && domainHash !== undefined) rec.domainHash = domainHash;
+    } else if (line.startsWith('nested-signer safe=')) {
+      const safeAddress = logField(line, 'safe');
+      const chainId = logField(line, 'chain');
+      const child = logField(line, 'child');
+      if (safeAddress === undefined || chainId === undefined || child === undefined) continue;
+      const rec = byKey.get(keyOf(safeAddress, chainId));
+      if (rec === undefined) continue;
+      rec.nestedSigners.push({
+        child,
+        nonce: logField(line, 'nonce') ?? '',
+        domainHash: logField(line, 'domainHash') ?? '',
+        messageHash: logField(line, 'messageHash') ?? '',
+        safeTxHash: logField(line, 'safeTxHash') ?? '',
+      });
+    }
   }
-  return out;
+  return order.map((k) => byKey.get(k)!);
 }
 
 /** Stable order: chainId asc, then safeAddress (lowercased) asc. */

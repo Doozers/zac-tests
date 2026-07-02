@@ -85,12 +85,31 @@ function renderPerSafeDetails(plans: SubmitRecord[]): string {
       '',
       `- **safeTxHash**:  \`${p.safeTxHash}\``,
       `- **messageHash**: \`${p.messageHash}\``,
+    ];
+    if (p.domainHash !== undefined && p.domainHash !== '') {
+      lines.push(`- **domainHash**:  \`${p.domainHash}\``);
+    }
+    lines.push(
       `- **Nonce**: ${p.nonce}`,
       `- **Operation**: ${opLabel}`,
       `- **Calls**: ${p.callsCount}`,
-    ];
+    );
     if (link !== '') {
       lines.push(`- **Sign in Safe app**: ${link}`);
+    }
+    if (p.nestedSigners.length > 0) {
+      lines.push(
+        '',
+        `- **Nested signers** — owner(s) of this Safe that are themselves Safes. Each approves by executing \`approveHash(safeTxHash)\`, so its own signers sign the **child transaction** below (computed at the shown child nonce). On a Ledger, verify the **Domain hash** and **Message hash**; \`safeTxHash\` is the child tx's final digest.`,
+      );
+      for (const n of p.nestedSigners) {
+        lines.push(
+          `  - \`${n.child}\` (child nonce ${n.nonce})`,
+          `    - Domain hash:  \`${n.domainHash}\``,
+          `    - Message hash: \`${n.messageHash}\``,
+          `    - safeTxHash:   \`${n.safeTxHash}\``,
+        );
+      }
     }
     return lines.join('\n');
   });
