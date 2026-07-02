@@ -15,14 +15,18 @@
  * `(chainId, safeAddress)` group gets its own row in the summary table,
  * sorted by chainId asc then safeAddress.
  *
- * NOTE: per-plan safeTxHash / messageHash are intentionally NOT shown
- * here. The Safe txs displayed in the PR are the pre-bundle plans —
- * they get re-bundled (and re-hashed) at release time when multiple
- * plans for the same `(chainId, safeAddress)` collapse into one Safe
- * transaction. Showing the pre-bundle hashes here would mislead signers
- * into expecting hashes that never appear on the hardware wallet. The
- * authoritative signing hashes live in the release workflow's body
- * (see `build-release-body.ts`).
+ * NOTE: the summary table intentionally omits per-plan safeTxHash /
+ * messageHash. The Safe txs in a PR are the pre-bundle plans — they get
+ * re-bundled (and re-hashed) at release time when multiple plans for the
+ * same `(chainId, safeAddress)` collapse into one Safe transaction. Showing
+ * pre-bundle hashes as authoritative would mislead signers. The authoritative
+ * signing hashes live in the release workflow's body (`build-release-body.ts`).
+ *
+ * The embedded **Plan diff** (raw `zac plan` stdout) DOES include the live
+ * nested-signer preview — the Domain hash / Message hash / final digest at the
+ * CURRENT nonce, to be re-verified against the release body after merge. When
+ * any plan declares nested signers we add a short callout pointing signers to
+ * that block.
  */
 
 import { readFileSync } from 'node:fs';
@@ -53,18 +57,35 @@ function renderBody(plans: PlanFile[], diff: string, headSha: string): string {
   const safes = new Set(sorted.map((p) => `${p.chainId}:${p.safeAddress.toLowerCase()}`));
 
   const summaryRows = sorted
-    .map((p) => `| \`${shortAddr(p.safeAddress)}\` | ${chainLabel(p.chainId)} | ${p.callsCount} |`)
+    .map(
+      (p) =>
+        `| \`${shortAddr(p.safeAddress)}\` | ${chainLabel(p.chainId)} | ${p.callsCount} | ${p.nestedSigners?.length ?? 0} |`,
+    )
     .join('\n');
+
+  // Nested-signer callout — some Safe owners are themselves Safes; their
+  // signers sign a message hash on the CHILD Safe. The hashes are previewed
+  // (at the current nonce) inside the Plan diff below and are authoritative in
+  // the release body after merge.
+  const nestedTotal = sorted.reduce((n, p) => n + (p.nestedSigners?.length ?? 0), 0);
+  const nestedCallout =
+    nestedTotal > 0
+      ? [
+          '',
+          `> 🔗 **${nestedTotal} nested signer${nestedTotal === 1 ? '' : 's'}** — one or more Safe owners are themselves Safes. The message hash their signers must sign **on the child Safe** is previewed in the **Plan diff** below (at the current nonce — re-verify against the release notes after merge).`,
+        ]
+      : [];
 
   return [
     '### 🤖 zac plan',
     '',
     `**${safes.size} safe${safes.size === 1 ? '' : 's'} across ${chains.size} chain${chains.size === 1 ? '' : 's'}** will be updated when this PR merges.`,
+    ...nestedCallout,
     '',
     '<details open><summary><b>Summary</b></summary>',
     '',
-    '| Safe | Chain | Calls |',
-    '|------|-------|-------|',
+    '| Safe | Chain | Calls | Nested signers |',
+    '|------|-------|-------|----------------|',
     summaryRows,
     '',
     '</details>',
